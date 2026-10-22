@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ISO Country Code Alpha-2 Quiz Game</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 min-h-screen font-sans text-white">
+<div class="max-w-lg mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold text-center text-white mb-1">ISO Country Code Quiz</h1>
+  <p class="text-center text-blue-300 mb-6">ISO 3166-1 Alpha-2 Codes</p>
+
+  <!-- Mode -->
+  <div class="flex gap-2 justify-center mb-6">
+    <button id="mode-code-btn" class="px-4 py-2 rounded-lg font-semibold text-sm bg-blue-500 text-white" aria-pressed="true">Code → Country</button>
+    <button id="mode-country-btn" class="px-4 py-2 rounded-lg font-semibold text-sm bg-gray-700 text-gray-300" aria-pressed="false">Country → Code</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="flex justify-between text-sm text-blue-200 mb-4 px-2">
+    <span>Score: <strong id="score" class="text-white">0</strong></span>
+    <span>Streak: <strong id="streak" class="text-yellow-300">0</strong> 🔥</span>
+    <span>Best: <strong id="best" class="text-green-300">0</strong></span>
+  </div>
+
+  <!-- Question card -->
+  <div class="bg-white/10 backdrop-blur rounded-2xl p-8 text-center mb-4 shadow-xl">
+    <div class="text-xs font-medium text-blue-300 mb-3 uppercase tracking-widest" id="question-hint"></div>
+    <div class="text-7xl font-bold tracking-widest text-white mb-2" id="question-text" aria-live="polite"></div>
+    <div class="text-sm text-blue-300" id="question-sub"></div>
+  </div>
+
+  <!-- Options -->
+  <div id="options" class="grid grid-cols-2 gap-3 mb-4"></div>
+
+  <!-- Feedback -->
+  <div class="text-center h-8 text-base font-semibold" id="feedback" aria-live="assertive"></div>
+
+  <!-- Progress -->
+  <div class="text-center text-sm text-blue-300 mt-2">Questions answered: <strong id="total" class="text-white">0</strong></div>
+</div>
+
+<script>
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+const COUNTRIES = [
+  ['AF','Afghanistan'],['AL','Albania'],['DZ','Algeria'],['AR','Argentina'],['AU','Australia'],
+  ['AT','Austria'],['BD','Bangladesh'],['BE','Belgium'],['BR','Brazil'],['BG','Bulgaria'],
+  ['CA','Canada'],['CL','Chile'],['CN','China'],['CO','Colombia'],['HR','Croatia'],
+  ['CZ','Czech Republic'],['DK','Denmark'],['EG','Egypt'],['EE','Estonia'],['ET','Ethiopia'],
+  ['FI','Finland'],['FR','France'],['DE','Germany'],['GH','Ghana'],['GR','Greece'],
+  ['HU','Hungary'],['IN','India'],['ID','Indonesia'],['IR','Iran'],['IQ','Iraq'],
+  ['IE','Ireland'],['IL','Israel'],['IT','Italy'],['JP','Japan'],['JO','Jordan'],
+  ['KZ','Kazakhstan'],['KE','Kenya'],['KR','South Korea'],['KW','Kuwait'],['LT','Lithuania'],
+  ['MY','Malaysia'],['MX','Mexico'],['MA','Morocco'],['MM','Myanmar'],['NL','Netherlands'],
+  ['NZ','New Zealand'],['NG','Nigeria'],['NO','Norway'],['PK','Pakistan'],['PE','Peru'],
+  ['PH','Philippines'],['PL','Poland'],['PT','Portugal'],['QA','Qatar'],['RO','Romania'],
+  ['RU','Russia'],['SA','Saudi Arabia'],['SN','Senegal'],['ZA','South Africa'],['ES','Spain'],
+  ['SE','Sweden'],['CH','Switzerland'],['TH','Thailand'],['TR','Turkey'],['UA','Ukraine'],
+  ['AE','United Arab Emirates'],['GB','United Kingdom'],['US','United States'],
+  ['UZ','Uzbekistan'],['VN','Vietnam'],['ZW','Zimbabwe'],
+];
+
+let mode = 'code'; // 'code' = show code, guess country; 'country' = show country, guess code
+let score = 0, streak = 0, best = 0, total = 0;
+let answered = false;
+let current = null;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+function nextQuestion() {
+  answered = false;
+  document.getElementById('feedback').textContent = '';
+
+  const pool = shuffle(COUNTRIES);
+  current = pool[0];
+  const wrong = pool.slice(1, 4);
+  const options = shuffle([current, ...wrong]);
+
+  if (mode === 'code') {
+    document.getElementById('question-hint').textContent = 'Which country has this ISO alpha-2 code?';
+    document.getElementById('question-text').textContent = current[0];
+    document.getElementById('question-sub').textContent = '';
+  } else {
+    document.getElementById('question-hint').textContent = 'What is the ISO alpha-2 code for this country?';
+    document.getElementById('question-text').textContent = current[1];
+    document.getElementById('question-sub').textContent = '';
+  }
+
+  const container = document.getElementById('options');
+  container.innerHTML = '';
+  for (const opt of options) {
+    const btn = document.createElement('button');
+    btn.className = 'py-3 px-4 rounded-xl bg-white/10 hover:bg-white/20 font-semibold text-white border-2 border-transparent transition text-sm';
+    btn.textContent = mode === 'code' ? opt[1] : opt[0];
+    btn.setAttribute('aria-label', 'Answer: ' + (mode === 'code' ? opt[1] : opt[0]));
+    btn.addEventListener('click', () => {
+      if (answered) return;
+      answered = true;
+      total++;
+      const correct = opt[0] === current[0];
+      if (correct) {
+        btn.className = btn.className + ' !bg-green-500 !border-green-400';
+        score++; streak++;
+        if (streak > best) best = streak;
+        document.getElementById('feedback').textContent = '✓ Correct!';
+        document.getElementById('feedback').className = 'text-center h-8 text-base font-semibold text-green-400';
+      } else {
+        btn.className = btn.className + ' !bg-red-500/70 !border-red-400';
+        streak = 0;
+        const correctLabel = mode === 'code' ? current[1] : current[0];
+        document.getElementById('feedback').textContent = '✗ Correct answer: ' + correctLabel;
+        document.getElementById('feedback').className = 'text-center h-8 text-base font-semibold text-red-400';
+        // Highlight correct
+        container.querySelectorAll('button').forEach(b => {
+          const val = b.textContent.trim();
+          const correctVal = mode === 'code' ? current[1] : current[0];
+          if (val === correctVal) b.className = b.className + ' !bg-green-500/70 !border-green-400';
+        });
+      }
+      document.getElementById('score').textContent = String(score);
+      document.getElementById('streak').textContent = String(streak);
+      document.getElementById('best').textContent = String(best);
+      document.getElementById('total').textContent = String(total);
+      setTimeout(nextQuestion, 1300);
+    });
+    container.appendChild(btn);
+  }
+}
+
+document.getElementById('mode-code-btn').addEventListener('click', function() {
+  mode = 'code';
+  this.className = 'px-4 py-2 rounded-lg font-semibold text-sm bg-blue-500 text-white';
+  this.setAttribute('aria-pressed','true');
+  const b2 = document.getElementById('mode-country-btn');
+  b2.className = 'px-4 py-2 rounded-lg font-semibold text-sm bg-gray-700 text-gray-300';
+  b2.setAttribute('aria-pressed','false');
+  nextQuestion();
+});
+
+document.getElementById('mode-country-btn').addEventListener('click', function() {
+  mode = 'country';
+  this.className = 'px-4 py-2 rounded-lg font-semibold text-sm bg-blue-500 text-white';
+  this.setAttribute('aria-pressed','true');
+  const b1 = document.getElementById('mode-code-btn');
+  b1.className = 'px-4 py-2 rounded-lg font-semibold text-sm bg-gray-700 text-gray-300';
+  b1.setAttribute('aria-pressed','false');
+  nextQuestion();
+});
+
+nextQuestion();
+</script>
+</body>
+</html>
